@@ -30,20 +30,62 @@ from yatl.helpers import A
 from .common import db, session, T, cache, auth, logger, authenticated, unauthenticated, flash
 from .models import get_user_email
 
-
 @action('index')
 @action.uses('index.html', db, auth.user)
 def index():
-    return dict(
-        get_contacts_url = URL('get_contacts'),
-        # Complete. 
-    )
+    return {
+        'contacts_url': URL('contacts'),
+    }
 
-@action('get_contacts')
+@action('contacts', method="GET")
 @action.uses(db, auth.user)
 def get_contacts():
-    contacts = [] # Complete. 
-    return dict(contacts=contacts)
+    contacts = []
+    for row in db(db.contact_card.user_email == get_user_email()).select(orderby=~db.contact_card.id):
+        contacts.append({
+            "id": row.id,
+            "name": row.contact_name,
+            "company": row.contact_affiliation,
+            "desc": row.contact_description,
+            "img": row.contact_image,
+        })
+    return contacts
 
-# You can add more methods. 
+@action('contacts', method="POST")
+@action.uses(db, auth.user)
+def add_contact():
+    row_id = db.contact_card.insert(
+        user_email=get_user_email()
+    )
+    db.commit()
+    return str(row_id)
 
+@action('contacts', method="PUT")
+@action.uses(db, auth.user)
+def edit_contact():
+    row_id  = int(request.json.get("id"))
+
+    name    = request.json.get("name")
+    company = request.json.get("company")
+    desc    = request.json.get("desc")
+    img     = request.json.get("img")
+
+    this_entry = db(
+        (db.contact_card.id == row_id) & (db.contact_card.user_email == get_user_email())
+    )
+    this_entry.update(
+        contact_name=name,
+        contact_affiliation=company,
+        contact_description=desc,
+        contact_image=img,
+    )
+    db.commit()
+
+@action('contacts', method="DELETE")
+@action.uses(db, auth.user)
+def delete_contact():
+    row_id = int(request.params.get("id"))
+    db(
+        (db.contact_card.id == row_id) & (db.contact_card.user_email == get_user_email())
+    ).delete()
+    db.commit()
