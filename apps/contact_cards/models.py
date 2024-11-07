@@ -11,14 +11,14 @@ def get_user_email():
     return auth.current_user.get('email') if auth.current_user else None
 
 def get_time():
-    return datetime.datetime.utcnow()
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 db.define_table(
     'contact_card',
-    Field('user_email', default=get_user_email),
-    Field('contact_name'),
-    Field('contact_affiliation'),
+    Field('user_email', 'string', default=get_user_email),
+    Field('contact_name', 'string'),
+    Field('contact_affiliation', 'string'),
     Field('contact_description', 'text'),
     Field('contact_image', 'text'),
 )
