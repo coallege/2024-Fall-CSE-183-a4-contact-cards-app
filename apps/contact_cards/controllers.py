@@ -41,7 +41,7 @@ def index():
 @action.uses(db, auth.user)
 def get_contacts():
     contacts = []
-    for row in db(db.contact_card.user_email == get_user_email()).select(orderby=~db.contact_card.id):
+    for row in db(db.contact_card.user_email == get_user_email()).select(orderby=db.contact_card.id):
         contacts.append({
             "id": row.id,
             "name": row.contact_name,

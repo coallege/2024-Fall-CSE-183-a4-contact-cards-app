@@ -12,7 +12,7 @@ app.component("contacts", {
         }
         async function addContact() {
             const {data} = await axios.post(contacts_url);
-            contacts.value = [{id: data}, ...contacts.value];
+            contacts.value.push({id: data});
         }
         async function editContact(c) {
             await axios.put(contacts_url, c);
@@ -30,8 +30,27 @@ app.component("contacts", {
 
         fetchData();
 
+        /** @type {{value: HTMLInputElement}} */
+        const fileInput = Vue.ref(null);
+        /** @returns {Promise<string>} */
         function getImage() {
-            // need to do modal
+            return new Promise((res, rej) => {
+                const fileSelected = () => {
+                    fileInput.value.removeEventListener("change", fileSelected);
+                    const files = fileInput.value.files;
+                    if (files.length < 1) {
+                        // not that this does anything since we're in a promise.
+                        // actually maybe it does who cares.
+                        throw new Error("You must select at least one file!");
+                    }
+                    const reader = new FileReader(files[0]);
+                    reader.readAsDataURL(files[0]);
+                    reader.onload = () => res(reader.result);
+                    reader.onerror = rej;
+                };
+                fileInput.value.addEventListener("change", fileSelected);
+                fileInput.value.click();
+            });
         }
 
         return {
@@ -39,10 +58,18 @@ app.component("contacts", {
             addContact,
             editContact,
             deleteContact,
+            fileInput,
             getImage,
         }
     },
     template: /* html */ `
+        <input
+            ref="fileInput"
+            type="file"
+            id="file-input"
+            style="display: none"
+            accept=".jpg, .png, .jpeg, .gif, .bmp, .tif, .tiff|image/*"
+        >
         <div class="container">
             <h1 class="title">Contacts</h1>
             <div>
@@ -77,10 +104,15 @@ app.component("contact", {
             props.me.img = img;
             props.editContact(props.me);
         }
+        function changeDesc(desc) {
+            props.me.desc = desc;
+            props.editContact(props.me);
+        }
         return {
             changeName,
             changeCompany,
             changeImage,
+            changeDesc,
         };
     },
     template: /* html */ `
@@ -115,14 +147,16 @@ app.component("contact", {
                         </p>
                     </div>
                     <div class="media-right">
-                        <i class="delete-button has-text-danger fa fa-trash trash" @click="deleteContact(me.id)"></i>
+                        <i
+                            class="delete-button has-text-danger fa fa-trash trash"
+                            @click="deleteContact(me.id)">
+                        </i>
                     </div>
                 </div>
-                <textarea
-                    class="textarea"
-                    name="description"
-                    placeholder="Description"
-                ></textarea>
+                <teck-starea
+                    :value="me.desc"
+                    :change="changeDesc"
+                />
             </div>
         </div>
     `,
@@ -176,11 +210,54 @@ app.component("editable-text", {
 });
 
 app.component("contact-image", {
-    props: ["src", "getImage"],
+    props: ["src", "change", "getImage"],
+    setup(props) {
+        async function getAndChangeImage() {
+            props.change(await props.getImage());
+        }
+        return {getAndChangeImage};
+    },
     template: /* html */ `
-        <figure class="photo image is-96x96">
-            <img class="photo" :src="src || 'https://bulma.io/assets/images/placeholders/96x96.png'"/>
+        <figure class="photo image is-96x96" @click="getAndChangeImage">
+            <img
+                class="photo"
+                :src="src || 'https://bulma.io/assets/images/placeholders/96x96.png'"
+            />
         </figure>
+    `,
+});
+
+app.component("teck-starea", {
+    props: ["value", "change"],
+    setup(props) {
+        const el = Vue.ref(null);
+        const readonly = Vue.ref(true);
+        function activate() {
+            readonly.value = false;
+            el.value.focus();
+        }
+        function commit() {
+            readonly.value = true;
+            props.change(el.value.value);
+        }
+        return {
+            el,
+            readonly,
+            activate,
+            commit,
+        }
+    },
+    template: /* html */ `
+        <textarea
+            ref="el"
+            class="textarea"
+            name="description"
+            placeholder="Description"
+            :value="value"
+            :readonly="readonly"
+            @click="activate"
+            @blur="commit"
+        ></textarea>
     `,
 });
 
